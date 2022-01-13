@@ -1,7 +1,7 @@
 
 # **Description**
 
-This document contains the description of the files and the algorithm to compute the TA assignment. I use this algorithm once a year to to create Fall?Winter TA assignment in two Economics departments of the U of Toronto. The assignment involves approximately 50,000 hours, 180 TAs, and 350 course sections. There is another Summer assignment that is much smaller (10,000 hours, and around 60-70 TAs).  
+This document contains the description of the files and the algorithm to compute the TA assignment. It has been used to find a TA assignment for, approximately, 200 TAs, 300 courses, and 50,000 hours of work in total.   
 
 ## 1. **Scripts**
 
@@ -15,7 +15,7 @@ The main algorithm is contained in the following scripts:
   - *SemesterHours* that processes pairs of numbers that represent of hour allocations across two semesters,  
   - *Market* that handles markets ((sub)lists of courses or students defined by some requirements),  
 - **mconfig.py**: contains parameters of the algorithm,
-- **mCriterion.py**: contains class *Criterion*, which determines the conditions of finishing a stage and the process of moving to the next stage.
+- **mCriterion.py**: contains class *Criterion*, which determines the conditions of initiating, moving through, and finishing and moving to the next stage of the algorithm. It also contains a smaller class *Goal* that manages initiation and tools associated with different goals of the algorithm.  
 
 The remaining scripts are peripheral to the main algorithm:
 
@@ -45,6 +45,7 @@ The algorithm loads the following data about
 - students:
   - identifiers: name, type (PhD, different Master-level programs (MA, MFE, Law, etc), undergrad, other (which typically means non-Economics)),  
   - requested hours, up to maximum 280h (we sometimes allocate more than 280h, but it is not recommended),  
+  - promised hours - some student have TA hours promised as a part of their offer and they are required to be allocated at least so many hours, 
   - semester in whcih the TA wants to work: F, S, Y. If the TA wants to teach in Y semesters, we try to split their assignment equally, 
   - skills possessed,  
   - positive and negative preference over courses.
@@ -155,9 +156,10 @@ Here,
 
 The *Matching.find_match()* is another key engine of the algorithm. At the basic level, given a course **C**, the method identifies an assignment, i.e., a TA and the number of hours, that will lead to the largest increase in satisfaction (see [Satisfaction increase](#SatisfactionInc)) for the course:  
 
-                student = max(students, key = course.satisfaction_increase)
+- If the best found student is an acceptable match (the highest increase in satisfaction is strictly positive), she or he is assigned to the course and the method returns the number of hours of the assignment.
+- If there is no acceptable student (the highest increase in satisfaction is not positive), the method returns 0h, which is later interpreted as a failure by the main loop (see [Main loop](#MainLoop)). 
 
-If there is no acceptable student (the highest increase in satisfaction is less than 0), the method returns 0h, which is later interpreted as a failure by the main loop (see [Main loop](#MainLoop)). The main loop looks like this:
+The main loop of the method looks like this:
 
                 while not found:
                     student = max(self.students, key = course.satisfaction_increase)
@@ -177,15 +179,14 @@ If there is no acceptable student (the highest increase in satisfaction is less 
 
 There are two exceptions to this basic idea:  
 
-- sometimes, some students urgently need an assignment (main reason is that those students have already many ). Such students are put on a priority list, and the course **C** must pick the candidate from the priority list if their best candidate (from a complete list) is not much better. What "much better" means is stored as a parameter of the algorithm.  
-- the method checks whether the chosen candidate is not a significantly better match for some other course using method *Matching.find_competition(student, course)* (see [Find competition](#FindComp)). If the competition is found, the student is assigned to the competition, and the main loop is restarted.  
-
-If the student is a good TA, she or he is assigned to the course and the method returns the number of hours of the assignment.
+- Sometimes, some students urgently need an assignment (main reason is that those students have already many ). Such students are put on a priority list, and the course **C** must pick the candidate from the priority list if their best candidate (from a complete list) is not much better. What "much better" means is stored as a parameter of the algorithm.  
+- The method checks whether the chosen candidate is not a significantly better match for some other course using method *Matching.find_competition(student, course)* (see [Find competition](#FindComp)). If the competition is found, the student is assigned to the competition, and the main loop is restarted.  
 
 ### <a name="FindComp"></a> **Find competition**
 
-This method 
-If so, we say that the student and the other course form a block. The method checks all the blocks to see if there are other potential assignments *currently* available to the other course that would increase its satisfaction almost as much as the student:  
+This method checks whether a potential assignment of a student **S** to a course **C** has a competition that may block the assignment. 
+
+There are two steps. First, the method identifies potential competition - which is refered to as blocks. Second, the method checks all the blocks to see if there are other potential assignments *currently* available to the other course that would increase its satisfaction almost as much as the student:  
 
                 for comp in blocks:
                     if competition == None:
@@ -194,12 +195,12 @@ If so, we say that the student and the other course form a block. The method che
                             if sc == student or (not comp in sc.first_best and comp.satisfaction_increase(student, context = context) > params.block_threshold *comp.satisfaction_increase(sc, context = context)):
                                 competition = compand accepts the block (i.e., matches the student with the other course) 
 
-    If not, the block is accepted as a relevant competition, and the student is assigned to the competition:
+If not, the block is accepted as a relevant competition, and the student is assigned to the competition:
 
                 if competition != None:
                     h = competition.assign(student, self.log, context = context)
 
-The identification of blocks depends on a hierarchy of potentially blocking courses that is stored as a student object: 
+The first step, i.e, the identification of blocks depends on a hierarchy of potentially blocking courses that are stored as properties the student **S** object: 
 
                 block_sequence = [student.blocks_strong, student.blocks, student.demanded, student.pref]
 
@@ -232,9 +233,92 @@ The method adds all possible blocking courses in *block_sequence* from a given l
 
 ### <a name="SatisfactionInc"></a> **Satisfaction increase**
 
-Unfortunately, increase in satisfaction is not synced with the method *Course.compute_satisfaction()*, though in principle they are related concepts. 
+The method *Course.satisfaction_increase(student)* computes the (current) quality of an assignment. The idea behind the satisfaction increase is that courses like larger assigments (it is eaier for instrctors to handle fewer TAs), with well-regarded high-quality TAs, and with TAs that have the required skills. 
+
+The method looks like this:
+
+                coeff = 1 + max(len(student.assignment)-2,0) * many_courses_boost
+                aval = self.available(student, context = context)
+                util = self.utility_vec[student.id]
+                match = self.skills_match(student, context = context)
+                if self.remaining_PhD < max_grad_margin_hours(self.hours, 'PhD'):
+                    max_hours_available = params.max_hours_available
+                else:
+                    max_hours_available = min(self.remaining_PhD, params.max_hours_available)
+                return min(max_hours_available ,coeff * aval) * util * match
+
+As the last line shows, the assignment quality is a product of 
+
+- available hours, which is, roughly, the maximum number of hours that the TA can work for the course (see [Available](#Available) for the details on how it is computed). That maximum hours is boosted if the student has already many assignments. (The reason for the boost is to minimize the maximum number of assignemtns for a student - students with many assignments have typically fewer hours available, which would make them unattractive. See priority list in [Find match](#FindMatch) for a similar concern). 
+    
+    The amount of available hours for the purpose of the computation of satisfaction increase is capped at the value of a parameter of an algorithm, that is further lowered if the course does not have to many remaining hours. Tbh, I don't remember what this kludge was supposed to fix. 
+
+- utility from being matched to the student. The utility is a measure of a quality of the student as a TA, matched with this particular course. See [Utility](#Utility) for computations details,
+- the quality of the skill match - see [Skill match](#SkillMatch). 
+
+The increase in satisfaction is not synced with the method *Course.compute_satisfaction()*, though in principle they are related concepts. 
 
 ### <a name="Available"></a> **Available hours**
+
+The computation of available hours is one of the more complicated parts of the algorithm. In principle, it is simple: check (a) how many hours a student has still available (i.e., what is currently left by deducting existing assignmens from the hours that the student requested - this is tracked in properties *student.remaining* and *student.remaining_sem*, where the latter is how the remaining hours are distributed across semesters) and (b) how many hours the course has remaining (course.remaining and course.remaining_sem), and take minimum of (a) and (b). However, it is complicated by:
+
+- student remaining hours are distributed across semesters and the algorithm should respect that distribution. Initially, if the student requests assignments in both semesters (i.e., Y), the distribution of remaining hours in each semester is equal to half of all the hours that the students requests. As the assignments progress, the remaining hours in each semester is updated independently, so a student who received a large assignment in F semester may be only available for S semester. The goal here is to spread TA hours as equally as possible. At the same time, the equal distribution of assignments is not always possible. The equal distribution matters more for Masters students and PhD students in the first 2 years, as those students have course work, and their time is more constrained Upper level PhDs can substitute their time across TAing and research more easily, so the constraint is less binding, 
+- the total PhD and total graduate hours assigned should not exceed the course allotment of Phd and total graduate hours. This constraint should be respected, but it is not a biding constraint and the algorithm should have in-built margin to allow for some amount of deviations,
+-   
+
+
+
+                reduced = False 
+                if student in self.pref and student.reduced:
+                    reduced = True
+                    student_total_hours = student.hours
+                    student.make_hours()
+                if student.remaining <= 0 or self.remaining <=0:
+                    hours=0
+                else:
+                    if student.type == 'PhD' and context.PhD_count == 0:
+                        PhD_cons = self.remaining_PhD  
+                        PhD_plus = self.remaining_PhD + max_grad_margin_hours(self.hours, 'PhD')
+                    else:
+                        PhD_cons, PhD_plus = HIGH, HIGH
+                    #Find student available hours. max_available is the maximum that the student can get convinced to. 
+                    if self.semester in ['F', 'S']:
+                        max_available = min(student.remaining + student.max_stretch, student.remaining_sem[self.semester]+student.hours_margin[self.semester])
+                        available = min(student.remaining, student.remaining_sem[self.semester])
+                    else: 
+                        max_available = min(student.remaining+student.max_stretch, 2*min([student.remaining_sem[sem]+student.hours_margin[sem] for sem in semesters]) )
+                        available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters]))
+                    #Combine hours that are availbe from student wiht the course
+                    if self.remaining <= min(student.remaining, PhD_plus, max_available):
+                        hours = self.remaining
+                    elif student.remaining <= min(self.remaining, max_available, PhD_plus) and student.remaining>=0:
+                        hours = student.remaining
+                    else:
+                        hours = max(0,min(available, self.remaining, PhD_cons)) 
+                    if not student in [ass[0] for ass in self.assignment]:
+                        #Min size of the assignemtn that does not fill the course is min_remaining
+                        if context.min_remaining and self.remaining - hours < params.min_remaining and self.remaining - hours > 0:
+                            hours = max(0,self.remaining - params.min_remaining)
+                        if student.remaining - hours < params.min_remaining and student.remaining - hours >0:
+                            hours = max(0,student.remaining - params.min_remaining)
+                        #Check the priorities
+                        if hours > 0 and context.priorities and student in context.priority_list and not self in student.pref:
+                            fills_something = hours >= student.remaining
+                            for sem in semesters:
+                                if student.remaining_sem[sem] > 0 and self.semester in [sem,'Y'] and hours >= student.remaining_sem[sem]:
+                                    fills_something = True
+                            if not fills_something: 
+                                hours = 0
+                #This part closes and reverses the reduce rouutine from above 
+                if student in self.pref and reduced:
+                    student.make_hours(student_total_hours) 
+                return hours
+
+### <a name="Utility"></a> **Match utility**
+
+TBA
+
+### <a name="SkillMatch"></a> **Skill match**
 
 TBA
 

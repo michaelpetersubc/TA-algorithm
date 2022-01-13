@@ -108,7 +108,7 @@ class Parameters:
         self.max_allowed_hours = 280
         self.max_allowed_hours_summer = 140
 
-        #Threshold used in the calculations of how valuable is availability course.find_match (or precisely, course>satisfaction_increase). 
+        #Threshold used in the calculations of how valuable is availability course.find_match (or precisely, course.satisfaction_increase). 
         self.max_hours_available = 210
 
         #Min_remaining is equal to the min_remaining hours used in course.available. Reject match if hours >lower_minr_remaining and < min_remaining

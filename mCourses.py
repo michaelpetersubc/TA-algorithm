@@ -192,7 +192,7 @@ class Course:
     def compute_utilities(self, students):
         for student in students:
             self.utility_vec[student.id] = self.utility(student)
-        
+
     def available(self, student, context = context):
         #The goal of the reduced routine is the same as reduced part in Student.make_hours - check there
         #but, if the student is on the course preference list, we igonore the reduction - stupid kludge. 
@@ -263,10 +263,10 @@ class Course:
         util = self.utility_vec[student.id]
         match = self.skills_match(student, context = context)
         if self.remaining_PhD < max_grad_margin_hours(self.hours, 'PhD'):
-            hours_available = params.max_hours_available
+            max_hours_available = params.max_hours_available
         else:
-            hours_available = min(self.remaining_PhD, params.max_hours_available)
-        return min(hours_available ,coeff * aval) * util * match
+            max_hours_available = min(self.remaining_PhD, params.max_hours_available)
+        return min(max_hours_available ,coeff * aval) * util * match
 
     def assign_basic(self, student, hours, comment):
         self.remaining -= hours
