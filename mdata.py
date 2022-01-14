@@ -389,19 +389,6 @@ class MatchingData:
                     if not course in student.pref and course.type == 'u' and course.name[:3] in original_pref:
                         student.pref.append(course)
                 
-
-        #Load ta experience uoft
-        query = ("SELECT a.student_id, u_number  FROM ta_applications a " 
-            "INNER JOIN ta_experience_uoft eu ON a.student_id = eu.student_id "
-            "INNER JOIN courses c ON c.course_id = eu.course_id "
-            "WHERE a.session = {} ORDER by student_id".format(self.session_code))
-        cursor.execute(query)
-        for (student_id, u_number) in cursor:
-            if student_id in self.student_map:
-                student = self.student_map[student_id]
-                for course in self.courses:
-                    if course.type in ['u','ug'] and int(course.name[:3]) == u_number:
-                        course.extended_pref.append(self.student_map[student_id])
         #Load evaluations
         query = ("SELECT e.student_id, instructor_id, e.course_id, u_number, g_number, overall, instructor_comment, year_code, date_submitted_instructor FROM ta_evaluations e " 
             "INNER JOIN ta_applications a ON a.student_id = e.student_id "
@@ -477,11 +464,6 @@ class MatchingData:
             for skill in important_skills:
                 for student in self.students:
                     if course.skills[skill]==1 and student.skills[skill]==1:
-                        course.extended_pref.append(student)
-            #adding field requests
-            for field in course.course_fields:
-                for student in self.top[field]:
-                    if not student in course.pref and not student in course.extended_pref:
                         course.extended_pref.append(student)
             #graduate courses without preferences get extended preferences
             if course.type == 'g' and course.pref == []:

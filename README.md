@@ -279,7 +279,7 @@ This is reversed at the end of the method by:
                 if student in self.pref and reduced:
                     student.make_hours(student_total_hours) 
 
-If both the student and the course has remaining hours left, the main body of the method is initiated. The first step is to determine the constraint imposed by the PhD hours. The constraint is not binding if the current state of the algorithm parameter *context.PhD_count* is 0 (the parameter is initiated with value 1, but it can be reduced in the course of the algrithm - see see [End criteria](#Criteria)). If the constraint is binding, variable *PhD_cons* takes value of the remaining PhD hours, and variable "PhD_plus" takes value of the allowable margin that the assigned PhD hours can exceed the allotted hours:
+If both the student and the course has remaining hours left, the main body of the method is initiated. The first step is to determine the constraint imposed by the PhD hours. The constraint is not binding if the current state of the algorithm parameter *context.PhD_count* is 0 (the parameter is initiated with value 1, but it can be reduced in the course of the algrithm - see [Reduction](#Reduction)). If the constraint is binding, variable *PhD_cons* takes value of the remaining PhD hours, and variable "PhD_plus" takes value of the allowable margin that the assigned PhD hours can exceed the allotted hours:
 
                 if student.type == 'PhD' and context.PhD_count == 0:
                     PhD_cons = self.remaining_PhD  
@@ -297,18 +297,18 @@ The next step is to find the student available hours. Variable *available* conta
                     max_available = min(student.remaining+student.max_stretch, 2*min([student.remaining_sem[sem]+student.hours_margin[sem] for sem in semesters]) )
                     available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters]))
 
-FIXME - add method that controls updating student.remaining and student.remaining_sem, so that it is impossible, first, that student.remaining <0, and, second, that student.remaining_sem['F'] + student.remaining_sem['S'] != student.remaining. The same about course.remaining.
+Note that the student.remaining variable can be negative due to the temporary reductions in the requested hours described in [Reduction](#Reduction) and the fact that this reduction can be reversed for students in course preferences described above. 
 
-Next, the available hours of the student are combined with available hours from the course. 
+Next, the available hours of the student are combined with available hours from the course. Student hours can be stretched if they manage to complete the assignment for the course. If the assignment can complete the student hours, it can violate balanced semester constraints. 
 
-                if self.remaining <= min(student.remaining, PhD_plus, max_available):
+                if self.remaining <= min(PhD_plus, max_available):
                     hours = self.remaining
                 elif student.remaining <= min(self.remaining, max_available, PhD_plus) and student.remaining>=0:
                     hours = student.remaining
                 else:
                     hours = max(0,min(available, self.remaining, PhD_cons)) 
 
-TBA
+Finally, the last part of the method applies to assignments that are new to the course (it is possible that, in the first run of the algorithm a PHD student is assigned to the course with hours that are limited in order to respect the PhD hours allotment. Later, when the algorithm stops enforcing PhD allotments (see [Criteria](#Criteria)), it may want to re-assign the student with additional hours). It makes sure that neither the student nor the course are left with too small assignment.  
 
                 if not student in [ass[0] for ass in self.assignment]:
                     #Min size of the assignemtn that does not fill the course is min_remaining
@@ -328,11 +328,32 @@ TBA
 
 ### <a name="Utility"></a> **Match utility**
 
-TBA
+*Course.utility(student)* is a bit long, but relatively straightforward method that computes the course's utility from a match with the student, as a function of:
+
+- whether the student is on the course list of preferences, and on what positon,
+- whether the instructor had a good experience in the past with the student (high evaluations),
+- if the student is in extended preferences, which may happen because the student skills belongs are important and rare and the courses that require those skills get the student "assigned" as a preference (see method *mdata.process_students()*)
+- if student requests the course (the idea being that interest in the course is a sign of a good match),
+- if a student only requests a single semester allocation (such students are more difficult to assign, so they get a boost),
+- rought statistics based on past evaluations and student type (PhD, MA - indication of seniority and experience), and 
+- finally, if a student has rejected allocation. Such student tyically have other commitments and they are less likely to accept other allocations. 
 
 ### <a name="SkillMatch"></a> **Skill match**
 
-TBA
+Method *Course.skill_match(student)* computes a measure of how the student skills match the current needs of the student. The method computes the needs for a given skill as a ratio of the remaining amount of skills that are unfilled by previous assignments to all remaining hours:   
+
+                need = {s:self.remaining_skills[s]/self.remaining for s in skill_description}
+
+The match coefficient is reduced for each skill that is below the need: 
+
+                d = 1
+                l = len(skill_description)
+                for s in skill_description:
+                    if need[s] > student.skills[s]:
+                        d -= s_plus * skill_relevance[s] * (need[s] - student.skills[s])/l
+                    else: 
+                        d -= s_minus * skill_relevance[s] * (student.skills[s] - need[s])/l
+                return max(d,0.1)
 
 ### <a name="Reduction"></a> **Reduction of hours**
 

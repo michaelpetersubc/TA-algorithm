@@ -215,9 +215,9 @@ class Course:
                 available = min(student.remaining, student.remaining_sem[self.semester])
             else: 
                 max_available = min(student.remaining+student.max_stretch, 2*min([student.remaining_sem[sem]+student.hours_margin[sem] for sem in semesters]) )
-                available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters]))
+                available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters])) 
             #Combine hours that are availbe from student wiht the course
-            if self.remaining <= min(student.remaining, PhD_plus, max_available):
+            if self.remaining <= min(PhD_plus, max_available):
                 hours = self.remaining
             elif student.remaining <= min(self.remaining, max_available, PhD_plus) and student.remaining>=0:
                 hours = student.remaining
@@ -238,6 +238,8 @@ class Course:
                     if not fills_something: 
                         hours = 0
         #This part closes and reverses the reduce rouutine from above 
+        if hours > min(self.remaining, student.remaining) and hours >0:
+            k=3
         if student in self.pref and reduced:
             student.make_hours(student_total_hours) 
         return hours

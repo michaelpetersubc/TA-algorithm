@@ -117,14 +117,7 @@ class Student(Person):
         self.remaining = self.hours
         self.remaining_sem = SemesterHours(semester = self.semester, hours = self.hours, preference = self.semester_preference)
         for ass in self.assignment:
-            self.remaining -= ass[1]
-            if ass[0].semester == 'Y':
-                for sem in semesters:
-                    self.remaining_sem[sem] -= ass[1]/2
-            else:
-                self.remaining_sem.h[ass[0].semester] -= ass[1]
-        if self.remaining <= 0:
-            self.remaining = 0 
+            self.subtract_remaining(ass[0].semester, ass[1])
         #Set hours_margins and max_stretch variable
         if self.semester == 'Y':
             self.hours_margin = clone(params.hours_margin)
@@ -149,10 +142,19 @@ class Student(Person):
             for l in [self.blocks_strong, self.blocks, self.demanded]:
                 if course in l: l.remove(course)
 
+    def subtract_remaining(self, semester, hours):
+        self.remaining -= hours
+        self.remaining_sem = self.remaining_sem - SemesterHours(semester, hours)
+        if self.remaining != self.remaining_sem['F'] + self.remaining_sem['S']:
+            k = 3/0
+            self.remaining = 0
+             
+
+
     def assign_basic(self, course, hours, comment):
         if hours == 0:
             return
-        self.remaining -= hours
+        self.subtract_remaining(course.semester, hours)
         new_assignment = True
         for ass in self.assignment:
             if new_assignment and ass[0] == course:
@@ -162,7 +164,6 @@ class Student(Person):
             self.assignment.append([course, hours, comment])
         else:
             old_ass[1] += hours
-        self.remaining_sem = self.remaining_sem - SemesterHours(course.semester, hours)
 
     def assign(self,course, hours, comment, context = context):
         self.assign_basic(course, hours, comment)
