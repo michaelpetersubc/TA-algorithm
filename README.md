@@ -64,7 +64,7 @@ The main loop of the algorithm
 - runs through a queue of courses, where the order in the queue is given by some ranking that is continuously updated and that may change in each iteration of the loop,
 - tries to find a single TA for this course. The TA assignment may fill all the hours that the course needs, in which case the course is done. More likely, at least in the begining, the course will still need additional TAs, in which case, it goes back to the queue.  
 
-The loop ends when the algorithm cannot find any more assignments for any of the courses. In such a case, the end criteria are checked, and if they are still not satisfied, some parameters of the algorithm are adjusted, and the loop starts again. If the end criteria are satisfied, or the algorithm tries all the adjustments, the process ends.  
+The loop ends when the algorithm cannot find any more assignments for any of the courses. In such a case, the end criteria are checked (see [End criteria](#Criteria)), and if they are still not satisfied, some parameters of the algorithm are adjusted, and the loop starts again. If the end criteria are satisfied, or the algorithm tries all the adjustments, the process ends.  
 
 The idea is that the courses that are high in the ranking pick TAs first, so they presumably pick the TAs who are the best, or the best matched. The longer the algorithm runs, the best TAs are already picked and the courses pick worse quality, worse matched TAs. Each time a course picks a TA, its positon in the ranking drops (but not necessarily to the bottom).
 
@@ -264,55 +264,67 @@ The computation of available hours is one of the more complicated parts of the a
 
 - student remaining hours are distributed across semesters and the algorithm should respect that distribution. Initially, if the student requests assignments in both semesters (i.e., Y), the distribution of remaining hours in each semester is equal to half of all the hours that the students requests. As the assignments progress, the remaining hours in each semester is updated independently, so a student who received a large assignment in F semester may be only available for S semester. The goal here is to spread TA hours as equally as possible. At the same time, the equal distribution of assignments is not always possible. The equal distribution matters more for Masters students and PhD students in the first 2 years, as those students have course work, and their time is more constrained Upper level PhDs can substitute their time across TAing and research more easily, so the constraint is less binding, 
 - the total PhD and total graduate hours assigned should not exceed the course allotment of Phd and total graduate hours. This constraint should be respected, but it is not a biding constraint and the algorithm should have in-built margin to allow for some amount of deviations,
--   
+- the assignment should not be too small. Also, the assignment, if made, should leave neither the course nor the student with too small remaining, whcih would make the subsequent assigment problematic. In order ot satisfy this goal, the algorithm may stretch and assign the student additional hours beyond what the student has requested. This should be done rarely. Under no condition should the algorithm assign more than required hours to the course. (The idea is that, most of the time, the TAs want more work - and if the student rejects the assignment, the problems can be handled manually. The courses are limited by budget conditions and those are much more difficult to be lifted),
 
+The main body of the method is wrapped by a test whether the student requested hours are temporarily reduced (see [Reduction of hours](#Reduction)). If so, and *the student is on the course preference list*, as an exception, the reduction is temporarily reversed (so, for the purpose of the calculation of available hours, the student has the unreduced hours): 
 
-
-                reduced = False 
+                reduced = False
                 if student in self.pref and student.reduced:
                     reduced = True
                     student_total_hours = student.hours
                     student.make_hours()
-                if student.remaining <= 0 or self.remaining <=0:
-                    hours=0
-                else:
-                    if student.type == 'PhD' and context.PhD_count == 0:
-                        PhD_cons = self.remaining_PhD  
-                        PhD_plus = self.remaining_PhD + max_grad_margin_hours(self.hours, 'PhD')
-                    else:
-                        PhD_cons, PhD_plus = HIGH, HIGH
-                    #Find student available hours. max_available is the maximum that the student can get convinced to. 
-                    if self.semester in ['F', 'S']:
-                        max_available = min(student.remaining + student.max_stretch, student.remaining_sem[self.semester]+student.hours_margin[self.semester])
-                        available = min(student.remaining, student.remaining_sem[self.semester])
-                    else: 
-                        max_available = min(student.remaining+student.max_stretch, 2*min([student.remaining_sem[sem]+student.hours_margin[sem] for sem in semesters]) )
-                        available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters]))
-                    #Combine hours that are availbe from student wiht the course
-                    if self.remaining <= min(student.remaining, PhD_plus, max_available):
-                        hours = self.remaining
-                    elif student.remaining <= min(self.remaining, max_available, PhD_plus) and student.remaining>=0:
-                        hours = student.remaining
-                    else:
-                        hours = max(0,min(available, self.remaining, PhD_cons)) 
-                    if not student in [ass[0] for ass in self.assignment]:
-                        #Min size of the assignemtn that does not fill the course is min_remaining
-                        if context.min_remaining and self.remaining - hours < params.min_remaining and self.remaining - hours > 0:
-                            hours = max(0,self.remaining - params.min_remaining)
-                        if student.remaining - hours < params.min_remaining and student.remaining - hours >0:
-                            hours = max(0,student.remaining - params.min_remaining)
-                        #Check the priorities
-                        if hours > 0 and context.priorities and student in context.priority_list and not self in student.pref:
-                            fills_something = hours >= student.remaining
-                            for sem in semesters:
-                                if student.remaining_sem[sem] > 0 and self.semester in [sem,'Y'] and hours >= student.remaining_sem[sem]:
-                                    fills_something = True
-                            if not fills_something: 
-                                hours = 0
-                #This part closes and reverses the reduce rouutine from above 
+                
+This is reversed at the end of the method by:
+
                 if student in self.pref and reduced:
                     student.make_hours(student_total_hours) 
-                return hours
+
+If both the student and the course has remaining hours left, the main body of the method is initiated. The first step is to determine the constraint imposed by the PhD hours. The constraint is not binding if the current state of the algorithm parameter *context.PhD_count* is 0 (the parameter is initiated with value 1, but it can be reduced in the course of the algrithm - see see [End criteria](#Criteria)). If the constraint is binding, variable *PhD_cons* takes value of the remaining PhD hours, and variable "PhD_plus" takes value of the allowable margin that the assigned PhD hours can exceed the allotted hours:
+
+                if student.type == 'PhD' and context.PhD_count == 0:
+                    PhD_cons = self.remaining_PhD  
+                    PhD_plus = self.remaining_PhD + max_grad_margin_hours(self.hours, 'PhD')
+                else:
+                    PhD_cons, PhD_plus = HIGH, HIGH
+
+The next step is to find the student available hours. Variable *available* contains the remaining available hours, and *max_available* contains upper bound on available hours if they are stretched. 
+
+                #Find student available hours. max_available is the maximum that the student can get convinced to. 
+                if self.semester in ['F', 'S']:
+                    max_available = min(student.remaining + student.max_stretch, student.remaining_sem[self.semester]+student.hours_margin[self.semester])
+                    available = min(student.remaining, student.remaining_sem[self.semester])
+                else: 
+                    max_available = min(student.remaining+student.max_stretch, 2*min([student.remaining_sem[sem]+student.hours_margin[sem] for sem in semesters]) )
+                    available = min(student.remaining, 2*min([student.remaining_sem[sem] for sem in semesters]))
+
+FIXME - add method that controls updating student.remaining and student.remaining_sem, so that it is impossible, first, that student.remaining <0, and, second, that student.remaining_sem['F'] + student.remaining_sem['S'] != student.remaining. The same about course.remaining.
+
+Next, the available hours of the student are combined with available hours from the course. 
+
+                if self.remaining <= min(student.remaining, PhD_plus, max_available):
+                    hours = self.remaining
+                elif student.remaining <= min(self.remaining, max_available, PhD_plus) and student.remaining>=0:
+                    hours = student.remaining
+                else:
+                    hours = max(0,min(available, self.remaining, PhD_cons)) 
+
+TBA
+
+                if not student in [ass[0] for ass in self.assignment]:
+                    #Min size of the assignemtn that does not fill the course is min_remaining
+                    if context.min_remaining and self.remaining - hours < params.min_remaining and self.remaining - hours > 0:
+                        hours = max(0,self.remaining - params.min_remaining)
+                    if student.remaining - hours < params.min_remaining and student.remaining - hours >0:
+                        hours = max(0,student.remaining - params.min_remaining)
+                    #Check the priorities
+                    if hours > 0 and context.priorities and student in context.priority_list and not self in student.pref:
+                        fills_something = hours >= student.remaining
+                        for sem in semesters:
+                            if student.remaining_sem[sem] > 0 and self.semester in [sem,'Y'] and hours >= student.remaining_sem[sem]:
+                                fills_something = True
+                        if not fills_something: 
+                            hours = 0
+
 
 ### <a name="Utility"></a> **Match utility**
 
@@ -322,9 +334,9 @@ TBA
 
 TBA
 
-### <a name="FindMatch"></a> **Match utility**
+### <a name="Reduction"></a> **Reduction of hours**
 
-TBA
+Send from [Available](#Available). TBA
 
 ### <a name="Criteria"></a> **End criteria**
 

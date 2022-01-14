@@ -1,0 +1,316 @@
+%% LyX 2.3.3 created this file.  For more info, see http://www.lyx.org/.
+%% Do not edit unless you really know what you are doing.
+\documentclass[12pt,letterpaper,reqno,english]{amsart}
+\usepackage[T1]{fontenc}
+\synctex=-1
+\usepackage{babel}
+\usepackage{amstext}
+\usepackage{amsthm}
+\usepackage[unicode=true,pdfusetitle,
+ bookmarks=true,bookmarksnumbered=false,bookmarksopen=false,
+ breaklinks=false,pdfborder={0 0 1},backref=false,colorlinks=false]
+ {hyperref}
+
+\makeatletter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
+\pdfpageheight\paperheight
+\pdfpagewidth\paperwidth
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Textclass specific LaTeX commands.
+\theoremstyle{definition}
+ \newtheorem{example}{\protect\examplename}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\usepackage{tikz}
+\usepackage{textgreek, enumitem}
+\usepackage[T1]{fontenc}
+\usetikzlibrary{decorations.pathreplacing, calc,fit,shapes, positioning,arrows, patterns}
+
+
+%
+\@ifundefined{definecolor}
+ {\usepackage{color}}{}
+\usepackage{amsfonts}\setcounter{MaxMatrixCols}{30}
+\usepackage{ifpdf} % part of the hyperref bundle
+\ifpdf % if pdflatex is used
+ % set fonts for nicer pdf view
+ \IfFileExists{lmodern.sty}
+  {\usepackage{lmodern}}{}
+\fi % end if pdflatex is used
+
+
+\providecommand{\U}[1]{\protect \rule{.1in}{.1in}}
+
+
+\providecommand{\possessivecite}[1]{\citeauthor{#1}'s\nolinebreak[2]
+(\citeyear{#1})}
+
+
+\renewcommand{\baselinestretch}{1.35}
+\setlength{\topmargin}{0.0in}
+\setlength{\textheight}{8.0in}
+\setlength{\evensidemargin}{0.20in}
+\setlength{\oddsidemargin}{0.20in}
+\setlength{\textwidth}{6.1in}
+
+
+\usepackage{bbold}
+\DeclareMathOperator{\EX}{\mathbb{E}}
+\DeclareMathOperator{\E}{\mathbb{E}}
+\DeclareMathOperator{\Prob}{\mathbb{P}}
+\DeclareMathOperator{\R}{\mathbb{R}}
+\DeclareMathOperator{\N}{\mathbb{N}}
+\DeclareMathOperator{\1}{\mathbb{1}}
+\DeclareMathOperator{\0}{\mathbb{0}}
+
+\DeclareMathOperator{\CU}{\mathcal{U}}
+\DeclareMathOperator{\CG}{\mathcal{G}}
+\DeclareMathOperator{\CQ}{\mathcal{Q}}
+
+\DeclareMathOperator{\val}{val}
+\DeclareMathOperator{\marg}{marg}
+\DeclareMathOperator{\supp}{supp}
+
+\newcommand{\euler}{\mathrm{e}}
+
+\usepackage{setspace}
+%\onehalfspacing
+
+\makeatother
+
+\providecommand{\examplename}{Example}
+
+\begin{document}
+\title{TA Assignment Problem}
+\author{Marcin Pęski}
+\begin{abstract}
+The goal is to formulate a TA assignment problem and discuss some
+problems with tryig to solve it using stability-like notions. 
+\end{abstract}
+
+\date{\today}
+\maketitle
+
+\section{Model}
+
+Let $S$ be the set of students (i.e., candidate TAs). Let $C$ be
+the set of courses. A (TA) assignment is a mapping $\phi:C\rightarrow\R_{+}^{S}$
+We refer to $\phi\left(c\right)$ as the assignment to course $c$.
+If $\phi$ is an assignment, then for each $s$, define $\phi\left(s\right)\in\R_{+}^{C}$
+by $\phi\left(s,c\right)=\phi\left(c,s\right)$. We refer to $\phi\left(s\right)$
+as the assignment of student $s$. Let $\Phi$ be the space of the
+assignments.
+
+Let $A_{S}=\R_{+}^{S}$ be the space of possible assignments to courses.
+Analogously, let $A_{C}=\R_{+}^{C}$ be the space of possible assignments
+for students. 
+
+Each course $c$ has a subset of assignments $F_{c}\subseteq A_{S}$
+that are feasible for it. Examples of feasibility constraints include:
+\begin{itemize}
+\item budget: Each course has a budget of $h_{c}$ TA hours that need to
+be allocated and assignment $\phi\left(c\right)\in A_{S}$ is feasible
+for $c$ if and only if 
+\[
+\sum_{s}\phi\left(c,s\right)=h_{c},
+\]
+\item minimum assignment hours: there is a constraint $\tau_{c}$ such that
+an assignment is feasible only if for each $s$, either $\phi\left(c,s\right)=0$
+or $\phi\left(c,s\right)\geq\tau_{c}$. 
+\end{itemize}
+Similarly, each student $s$ has a subset $A_{s}\subseteq A_{C}$
+of assignments that are feasible for them. Examples of student feasibility
+constraints:
+\begin{itemize}
+\item maximum assignment: each student $s$ cannot work for more than $\kappa_{s}$
+hours: 
+\[
+\sum_{c}\phi\left(c,s\right)\leq\kappa_{s},
+\]
+\item minimum assignment: student $s$ must work for at least $l_{s}$ hours,
+\item balance across semesters: There is a set $M$ of ``semesters'' and
+each course $c$ is associated with a subset $M_{c}\subseteq M$ of
+``semesters'' in which this course is taught. The student $s$ assigned
+hours in semester $m$ are equal to 
+\[
+h_{s}\left(m;\phi\right)=\sum_{c:m\in M_{c}}\frac{1}{\left|M_{c}\right|}\phi\left(c,s\right).
+\]
+It is required that the student assignment across semesters is balanced:
+for some constant $\rho>1$, for each $m,m^{\prime}$, 
+\[
+\frac{h_{s}\left(m,\phi\right)}{h_{s}\left(m^{\prime},\phi\right)}\leq\rho.
+\]
+\end{itemize}
+An assignment $\phi$ is \emph{feasible} if $\phi\left(i\right)\in A_{i}$
+for each $i\in S\cup C$. 
+
+Each student $s$ has preferences over possible assignments represented
+by utility function $u_{s}:A_{C}\rightarrow\R$. Similarly, each course
+$c$ has preferences over assignments represented by $u_{c}:A_{S}\rightarrow\R$.
+
+An assignment is individually rational (for students) if none of the
+students is better off by dropping some courses from its assignment
+(the logic is that students cannot be made to work for a course, and
+a typical TA contract is written separately for each course. If TAs
+sign up for a bundle, i.e., for each of their assignment, the individual
+rationality would require that each student prefers their assignment
+to \textbf{0} assignment). Formally, for each $s$, each $D\subseteq C$,
+$u\left(\phi\left(s\right)\right)\geq u\left(\phi_{D}\left(s\right)\right)$,
+where $\phi_{D}$ is an assignment obtained from $\phi$ by zeroing
+all courses not in $D$ $\phi_{D}\left(c,s\right)=\begin{cases}
+\phi\left(c,s\right) & c\in D\\
+0 & \text{otherwise}
+\end{cases}$. 
+
+Let $\Phi^{*}$ be the set of feasible and individually rational assignments. 
+
+A social planner has preferences over $\Phi^{*}$. 
+
+\section{Core and stability}
+
+Suppose that the social planner would like its assignment to be stable,
+in some sense. It is not clear what exactly stable assignment means
+- as there are many options available. Perhaps the most straightforward
+would be t consider individually rational assignments that are not
+blocked by 2-agent (student and course) coalitions. But, with many-to-many
+assignments, 2-agent coalitions may not be sufficient and one may
+want to think about some sort of core-type concept. 
+
+Instead of focusing on a stability notion, I want to illustrate the
+problem with few examples why the any stability-like notion can be
+problematic. 
+
+\subsection{No externalities\label{subsec:No-externalities}}
+
+Suppose that student preferences are additive: for each $s$, there
+exist constants $\nu_{s}\left(c\right)$ such that for each $a\in A_{C}$,
+\[
+u_{s}\left(a\right)=\sum_{c}a_{c}\nu_{s}\left(c\right).
+\]
+Additionally, suppose that all assignments of student $s$ are subject
+to maximum constraint $\kappa_{s}$. 
+
+Similarly, suppose that course preferences are additive: for each
+$c$, there exist constants $\nu_{c}\left(s\right)$ such that for
+each $a\in A_{S}$,
+\[
+u_{c}\left(a\right)=\sum_{s}a_{s}\nu_{c}\left(s\right).
+\]
+Additionally, suppose that all assignments of course $c$ are subject
+to maximum constraint $h_{s}$. 
+
+In this environment, one can show that the core is non-empty. Moreover,
+core allocations can be found by a version of Gale-Shapley algorithm.
+(Should I add this?)
+
+\subsection{Courses that span across semesters}
+
+It is well-known that any type of externality (or, more precisely,
+complementarities) in many-to-many matching problems leads to problems
+with the existence of a stable outcome (or core).
+
+One source of externality that reduces the use of stability as a satisfactory
+solution concept is given by courses that span across multiple semesters. 
+\begin{example}
+\label{exa:There-are-three}There are three students $x,y,z$, and
+four courses $aF,aS,bY,cY$. Courses $bY$ and $cY$ are offered across
+two semesters, the other two courses are offered only in one semester.
+Each course needs exactly 1 TA, and each student wants at most 1 course
+per semester. All allocations must be either 1 or 0. (In this example,
+partial allocations would not help anyway.) Student preferences over
+bundles of courses are 
+\begin{align*}
+x: & \left\{ aF,aS\right\} >bY>aF>\emptyset,\\
+y: & aF>cY>\emptyset,\\
+z: & cY>aS>\emptyset,
+\end{align*}
+Essentially, student $x$ really likes course $aF$, but also needs
+money and would rather TA for $aF$ and $aS$ than for the whole-year
+course $Y$, but is willing to TA for $aF$ only if that's the only
+option. Course preferences are 
+\begin{align*}
+aF: & x>y>\emptyset\\
+aS: & z>x>\emptyset,\\
+bY: & x>\emptyset,\\
+cY: & y>z>\emptyset.
+\end{align*}
+So, $x$ and $aF$ are top matches for e\textbackslash each other,
+but otherwise, there are no obvious matches. 
+
+We show that there is no core. If $y$ is assigned to $aF$, then
+$z$ must be assigned to $cY$ (as that is the top assignment for
+$z$ and the second best assignment for $cY$ after $y$ is taken).
+But then, given that the best remaining for $aS$ is $x$, $x$ and
+pair $\left\{ aF,aS\right\} $ are a blocking coalition (as the student
+and all courses prefer to rematch with each other). 
+
+If $y$ is assigned to $cY$, then $z$ must be assigned with $aS$
+(as $z$ is the top choice for $aS$ and $aS$ is the top choice for
+$z$ aparat from $cY$ which prefers $y$. But then, since $aS$ prefers
+$z$, $bY$ is the best option for $x$. As a consequence $aF$ is
+available for $y$ who prefers it to $cY$.
+
+If $y$ is not assigned to anybody, then $z$ gets $cY$, but then
+$y$ and and $cY$ is a blocking pair. 
+\end{example}
+
+\subsection{Preferences over the number of assignments}
+
+Another source of problematic externality is when either students
+(or, resp., courses) have preferences over the total number of assigned
+courses (resp. students). In fact, a reinterpretation of Example \ref{exa:There-are-three}
+illustrates a difficulty:
+\begin{example}
+There are three students $x,y,z$, and four courses $a,a^{\prime},b,c$.
+Each student has up to 2h of work available. Courses $b$ and $c$
+require 2h of work and they only want to hire the same TA. Courses
+$a,a^{\prime}$ require 1h of work each. Otherwise, the preferences
+are similar to Example \ref{exa:There-are-three}: for students 
+\begin{align*}
+x: & \left\{ a,a^{\prime}\right\} >b>a>\emptyset,\\
+y: & a>c>\emptyset,\\
+z: & c>a^{\prime}>\emptyset,
+\end{align*}
+and for courses:
+\begin{align*}
+a: & x>y>\emptyset\\
+a^{\prime}: & z>x>\emptyset,\\
+b: & x>\emptyset,\\
+c: & y>z>\emptyset.
+\end{align*}
+There is no stable matching.
+\end{example}
+
+\subsection{Minimum assignment}
+
+There are $n\geq1$ students and $n+1$ courses. Each student has
+$n+1$ hours and each course needs $n$ hours. The student $s$ utility
+from assignment is linear in assignments (like in Section \ref{subsec:No-externalities}),
+with coefficients equal to 
+\[
+v_{s}\left(c\right)=\begin{cases}
+1+\varepsilon & c=s\\
+1 & c\neq s.
+\end{cases}.
+\]
+Course $c$ utility from the assignment $a\in A_{S}$ depends on the
+number of non-zero assignments and it equal to 
+\[
+u_{c}\left(a\right)=\varepsilon1_{s=c}+\begin{cases}
+1 & \left|\left\{ s:a_{s}>0\right\} \right|=1\\
+1-\varepsilon & \left|\left\{ s:a_{s}>0\right\} \right|=2\\
+1-10\left|\left\{ s:a_{s}>0\right\} \right| & \left|\left\{ s:a_{s}>0\right\} \right|>2.
+\end{cases}
+\]
+The first term is a small boost of the utility when the student has
+the same index as he course. 
+
+Then, the unique core allocation (or stable matching under any reasonable
+deifnition) is when each student is matched for $n$ hours with the
+course with the same index and for remaining $1$ hours is assigned
+to course $n+1$. 
+
+Of course, the above assignment is Pareto-optimal, but wildly inefficient. 
+\end{document}
